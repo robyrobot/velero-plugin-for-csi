@@ -11,37 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM busybox:1.33.1 AS busybox
 
-FROM golang:1.16-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.17-buster AS build
+
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-ENV GOARCH=$TARGETARCH
-ENV GOOS=$TARGETOS
+ENV GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    GOARM=${TARGETVARIANT}
 
 # install prerequisites
-RUN apk update && apk add gcc && apk add libc-dev 
+#RUN apk update && apk add gcc && apk add libc-dev 
 
-WORKDIR /app 
+COPY . /go/src/velero-plugin-for-csi
+WORKDIR /go/src/velero-plugin-for-csi
+RUN export GOARM=$( echo "${GOARM}" | cut -c2-) && \
+    CGO_ENABLED=0 go build -v -o /go/bin/velero-plugin-for-csi .
 
-COPY go.mod go.sum ./
-RUN go mod download
-COPY *.go ./
-COPY internal ./internal
-RUN go build \
-    -o _output/bin/$GOOS/$GOARCH/velero-plugin-for-csi \
-    -installsuffix "static" \
-    -mod=readonly \
-    ./
+FROM busybox:1.34.1 AS busybox
 
-FROM gcr.io/distroless/base-debian10:nonroot
-ARG TARGETOS
-ARG TARGETARCH
-ARG TARGETVARIANT
-
-COPY --from=builder /app/_output/bin/$TARGETOS/$TARGETARCH/velero-plugin-for-csi /plugins/
+FROM scratch
+COPY --from=build /go/bin/velero-plugin-for-csi /plugins/
 COPY --from=busybox /bin/cp /bin/cp
-USER nonroot:nonroot
+USER 65532:65532
 ENTRYPOINT ["cp", "/plugins/velero-plugin-for-csi", "/target/."]
+
