@@ -1,5 +1,9 @@
 [![Build Status][101]][102]
 
+# Why fork it
+This project is a fork of the velero-plugin-for-csi to support building for arm64 architecture. I added a publish-workflow and a **Dockerfile.multiarch** to build a multiarch version of the plugin and publish as github packages.
+The plugin is automatically built and published when a tag starting with 'v' has been created.
+
 # Velero CSI plugins
 
 
